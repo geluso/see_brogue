@@ -11,6 +11,8 @@ pytesseract.pytesseract.tesseract_cmd = '/usr/local/bin/tesseract'
 
 LAST_TEXT = None
 LAST_TEXT_IMG = None
+GOLD_COUNT = 0
+SPEED_FACTOR = 1
 
 def read(frame, xx, yy, width, height):
   global LAST_TEXT_IMG
@@ -35,18 +37,30 @@ def read(frame, xx, yy, width, height):
   else:
     return LAST_TEXT
 
-def draw_fps(frame, start):
+def draw_fps(frame, start, current_frame, total_frames):
+  global GOLD_COUNT
+
+  percent_complete = int(100 * current_frame / total_frames)
+
   end = time.time()
   seconds = end - start
   fps = int(1 / seconds)
-  fps_text = "FPS: " + str(fps)
+  fps_text = str(SPEED_FACTOR) + "x Gold: " + str(GOLD_COUNT) + " FPS: " + str(fps) + " " + str(percent_complete) + "%"
 
   font = cv2.FONT_HERSHEY_SIMPLEX
-  org = (1100, 30)
+  org = (880, 30)
   font_scale = 1
   color = (255, 0, 0)
   thickness = 2
   frame = cv2.putText(frame, fps_text, org, font, font_scale, color, thickness, cv2.LINE_AA)
+
+def process_text(text):
+  global GOLD_COUNT
+
+  if "gold" in text:
+    pieces = text.split(" ")[2]
+    num_pieces = int(pieces)
+    GOLD_COUNT += num_pieces
 
 with shelve.open('config') as config:
   default_config = {
@@ -82,18 +96,22 @@ with shelve.open('config') as config:
 
       wait_key = cv2.waitKey(25)
       # Time controls
+      if wait_key & 0xFF == ord('0'):
+        GOLD_COUNT = 0
+        current_frame = 24565
+      if wait_key & 0xFF == ord('x'):
+        SPEED_FACTOR += 1
+      if wait_key & 0xFF == ord('X'):
+        SPEED_FACTOR -= 1
+        SPEED_FACTOR = max(1, SPEED_FACTOR)
       if wait_key & 0xFF == ord('l'):
-        forward_frame = min(current_frame + 5 * 30, total_frames)
-        cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, forward_frame)
+        current_frame = min(current_frame + 5 * 30, total_frames)
       elif wait_key & 0xFF == ord('L'):
-        forward_frame = min(current_frame + 60 * 30, total_frames)
-        cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, forward_frame)
+        current_frame = min(current_frame + 60 * 30, total_frames)
       elif wait_key & 0xFF == ord('h'):
-        backward_frame = max(current_frame - 5 * 30, 1)
-        cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, backward_frame)
+        current_frame = max(current_frame - 5 * 30, 1)
       elif wait_key & 0xFF == ord('H'):
-        backward_frame = max(current_frame - 60 * 30, 1)
-        cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, backward_frame)
+        current_frame = max(current_frame - 60 * 30, 1)
       # Rect move commands
       elif wait_key & 0xFF == ord('w'):
         rect_yy -= 1
@@ -147,6 +165,7 @@ with shelve.open('config') as config:
       if not text == LAST_TEXT:
         LAST_TEXT = text
         print(text)
+        process_text(text)
 
       rect_width = max(0, rect_width)
       rect_height = max(0, rect_height)
@@ -158,9 +177,11 @@ with shelve.open('config') as config:
       thickness = 2
       cv2.rectangle(frame, top_left, bot_right, color, thickness)
 
-      draw_fps(frame, start)
+      draw_fps(frame, start, current_frame, total_frames)
 
       cv2.imshow('Frame', frame)  
+
+      cap.set(cv2.cv2.CAP_PROP_POS_FRAMES, current_frame + SPEED_FACTOR)
     else:
       break
 
