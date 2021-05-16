@@ -1,0 +1,17 @@
+@: You (lit)
+Health You finish your detailed search of the area.
+Nutrition You ascend.
+Str: 12 Armor: 3
+Stealth range: 14
+
+B&B: A downward
+staircase
+
+Cr)
+
+ 
+
+Grass-like fungus crunches underfoot.
+
+-- Depth: 1 -- Explore Rest (z) Search (s) Menu Inventory
+
